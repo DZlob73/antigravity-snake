@@ -41,6 +41,11 @@
             z-index: 10;
         }
 
+        @media (max-width: 600px) {
+            #header { padding: 5px 10px; font-size: 12px; }
+            #record-display { font-size: 11px; }
+        }
+
         #player-display { color: #94A3B8; }
         #record-display { color: var(--record-color); }
 
@@ -51,6 +56,10 @@
             padding: 15px 0;
             font-size: 18px;
             font-weight: bold;
+        }
+
+        @media (max-width: 600px) {
+            #stats { padding: 8px 0; font-size: 14px; }
         }
 
         #score-val { color: var(--snake-color); }
@@ -119,32 +128,41 @@
 
         button:active { transform: scale(0.95); }
 
-        /* Mobile Controls */
         #controls {
-            margin-top: 20px;
-            display: grid;
-            grid-template-areas: 
-                ". up ."
-                "left fire right"
-                ". down .";
-            gap: 10px;
-            padding: 10px;
+            margin-top: auto;
+            width: 100%;
+            max-width: 500px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 25px;
+            box-sizing: border-box;
             touch-action: none;
         }
 
+        #movement-zone {
+            display: grid;
+            grid-template-areas: 
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: 5px;
+        }
+
         .ctrl-btn {
-            width: 60px;
-            height: 60px;
-            background: rgba(30, 41, 59, 0.5);
+            width: 50px;
+            height: 50px;
+            background: rgba(30, 41, 59, 0.4);
             border: 2px solid #334155;
             border-radius: 50%;
             color: white;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 24px;
+            font-size: 20px;
             user-select: none;
             cursor: pointer;
+            transition: background 0.2s;
         }
 
         .ctrl-btn:active { background: var(--header-bg); }
@@ -153,12 +171,13 @@
         #btn-left { grid-area: left; }
         #btn-right { grid-area: right; }
         #btn-fire { 
-            grid-area: fire; 
-            background: rgba(231, 76, 60, 0.3);
-            border-color: rgba(231, 76, 60, 0.5);
+            width: 65px;
+            height: 65px;
+            font-size: 16px;
+            background: rgba(231, 76, 60, 0.25);
+            border-color: rgba(231, 76, 60, 0.4);
             color: var(--food-color);
             font-weight: bold;
-            font-size: 14px;
         }
 
         @media (min-width: 800px) {
@@ -172,6 +191,28 @@
 
         .game-over-title { color: var(--food-color); font-size: 40px; margin-bottom: 20px; }
         .new-record { color: var(--accent-color); font-style: italic; margin-bottom: 20px; font-weight: bold; }
+
+        /* Level Up Toast */
+        #level-toast {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 50px;
+            font-weight: bold;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
+            display: none;
+            z-index: 100;
+            pointer-events: none;
+            animation: toast-fade 1s ease-in-out forwards;
+        }
+
+        @keyframes toast-fade {
+            0% { transform: translate(-50%, -50%) scale(0.5); opacity: 0; }
+            30% { transform: translate(-50%, -50%) scale(1.1); opacity: 1; }
+            100% { transform: translate(-50%, -50%) scale(1); opacity: 0; }
+        }
 
         #pause-screen {
             text-align: center;
@@ -188,10 +229,14 @@
 
     <div id="header">
         <div id="player-display">PLAYER: ...</div>
-        <div id="record-display">RECORD: ...</div>
+        <div id="record-display">
+            RECORD: ...
+            <span id="mute-toggle" style="margin-left:15px; cursor:pointer; opacity:0.6;">🔊</span>
+        </div>
     </div>
 
     <div id="stats">
+        <div>LEVEL: <span id="level-val">1</span></div>
         <div>SCORE: <span id="score-val">0</span></div>
         <div>LENGTH: <span id="length-val">3</span></div>
         <div>TIME: <span id="time-val">0s</span></div>
@@ -224,14 +269,21 @@
                 </div>
             </div>
         </div>
+
+        <div id="level-toast">LEVEL UP!</div>
+    </div>
     </div>
 
     <div id="controls">
-        <div class="ctrl-btn" id="btn-up">▲</div>
-        <div class="ctrl-btn" id="btn-left">◀</div>
-        <div class="ctrl-btn" id="btn-fire">FIRE</div>
-        <div class="ctrl-btn" id="btn-right">▶</div>
-        <div class="ctrl-btn" id="btn-down">▼</div>
+        <div id="action-zone">
+            <div class="ctrl-btn" id="btn-fire">FIRE</div>
+        </div>
+        <div id="movement-zone">
+            <div class="ctrl-btn" id="btn-up">▲</div>
+            <div class="ctrl-btn" id="btn-left">◀</div>
+            <div class="ctrl-btn" id="btn-right">▶</div>
+            <div class="ctrl-btn" id="btn-down">▼</div>
+        </div>
     </div>
 
     <script>
@@ -246,6 +298,9 @@
         const nameInputContainer = document.getElementById('name-input-container');
         const gameOverScreen = document.getElementById('game-over-screen');
         const pauseScreen = document.getElementById('pause-screen');
+        const levelToast = document.getElementById('level-toast');
+        const levelVal = document.getElementById('level-val');
+        const muteToggle = document.getElementById('mute-toggle');
         const playerNameInput = document.getElementById('playerNameInput');
 
         // Configuration
@@ -257,16 +312,83 @@
         const OBSTACLE_COLOR = "#475569";
         const SNAKE_OUTLINE = "#27AE60";
         const BULLET_COLOR = "#F1C40F";
-        const SPEED = 120;
+        const BASE_SPEED = 120;
+        const SPEED_INC = 8;
+        const LEVEL_THRESHOLD = 5;
 
         let snake, food, obstacles, projectiles;
         let score, direction, nextDirection, isGameOver, startTime, gameLoop, uiLoop, bulletLoop;
+        let currentLevel = 1;
+        let currentSpeed = BASE_SPEED;
         let isPaused = false;
         let gameStarted = false;
         let pausedDuration = 0;
         let pauseStart = 0;
+        let isMuted = false;
         let playerName = "Player";
         let highScore = { name: "None", score: 0 };
+
+        // Audio System
+        let audioCtx;
+        function initAudio() {
+            if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        }
+
+        function playSound(type) {
+            if (isMuted || !audioCtx) return;
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+
+            const now = audioCtx.currentTime;
+            if (type === 'eat') {
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(440, now);
+                osc.frequency.exponentialRampToValueAtTime(880, now + 0.1);
+                gain.gain.setValueAtTime(0.1, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'shoot') {
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(600, now);
+                osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+                gain.gain.setValueAtTime(0.05, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+                osc.start(now);
+                osc.stop(now + 0.1);
+            } else if (type === 'hit') {
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(150, now);
+                osc.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+                gain.gain.setValueAtTime(0.2, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+                osc.start(now);
+                osc.stop(now + 0.3);
+            } else if (type === 'levelup') {
+                const freqs = [523.25, 659.25, 783.99, 1046.50]; // C5, E5, G5, C6
+                freqs.forEach((f, i) => {
+                    const o = audioCtx.createOscillator();
+                    const g = audioCtx.createGain();
+                    o.connect(g); g.connect(audioCtx.destination);
+                    o.type = 'triangle';
+                    o.frequency.setValueAtTime(f, now + i * 0.1);
+                    g.gain.setValueAtTime(0.1, now + i * 0.1);
+                    g.gain.exponentialRampToValueAtTime(0.01, now + i * 0.1 + 0.15);
+                    o.start(now + i * 0.1);
+                    o.stop(now + i * 0.1 + 0.15);
+                });
+            } else if (type === 'break') {
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(300, now);
+                osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+                gain.gain.setValueAtTime(0.15, now);
+                gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+                osc.start(now);
+                osc.stop(now + 0.15);
+            }
+        }
 
         function init() {
             // Adjust canvas for mobile/desktop
@@ -307,6 +429,7 @@
         }
 
         function startGame() {
+            initAudio();
             playerName = playerNameInput.value.trim() || "Player";
             playerDisplay.innerText = `PLAYER: ${playerName.toUpperCase()}`;
             overlay.style.display = 'none';
@@ -316,6 +439,8 @@
 
         function resetGame() {
             score = 0;
+            currentLevel = 1;
+            currentSpeed = BASE_SPEED;
             direction = 'right';
             nextDirection = 'right';
             isGameOver = false;
@@ -335,19 +460,19 @@
                 {x: startX - 2 * SPACE_SIZE, y: startY}
             ];
 
-            generateObstacles();
+            generateObstacles(8);
             spawnFood();
             
             if (gameLoop) clearInterval(gameLoop);
             if (bulletLoop) clearInterval(bulletLoop);
-            gameLoop = setInterval(nextTurn, SPEED);
+            gameLoop = setInterval(nextTurn, currentSpeed);
             bulletLoop = setInterval(updateProjectiles, 30);
             updateUI();
         }
 
-        function generateObstacles() {
+        function generateObstacles(count) {
             obstacles = [];
-            for (let i = 0; i < 8; i++) {
+            for (let i = 0; i < count; i++) {
                 while (true) {
                     const x = Math.floor(Math.random() * GRID_WIDTH) * SPACE_SIZE;
                     const y = Math.floor(Math.random() * GRID_HEIGHT) * SPACE_SIZE;
@@ -394,6 +519,8 @@
 
             if (head.x === food.x && head.y === food.y) {
                 score++;
+                playSound('eat');
+                checkLevelUp();
                 spawnFood();
             } else {
                 snake.pop();
@@ -418,7 +545,8 @@
 
         // Improved Projectile Logic
         function fireProjectile() {
-            if (isGameOver) return;
+            if (isGameOver || isPaused) return;
+            playSound('shoot');
             projectiles.push({
                 x: snake[0].x,
                 y: snake[0].y,
@@ -445,6 +573,7 @@
                 for (let i = 0; i < obstacles.length; i++) {
                     if (obstacles[i].x === gx && obstacles[i].y === gy) {
                         obstacles.splice(i, 1);
+                        playSound('break'); 
                         hit = true;
                         break;
                     }
@@ -560,6 +689,7 @@
         function updateUI() {
             scoreVal.innerText = score;
             lengthVal.innerText = snake.length;
+            levelVal.innerText = currentLevel;
             
             let currentPaused = pausedDuration;
             if (isPaused) {
@@ -590,6 +720,7 @@
         }
 
         function exitToMenu() {
+            initAudio();
             isGameOver = false;
             isPaused = false;
             gameStarted = false;
@@ -602,7 +733,54 @@
             overlay.style.display = 'flex';
         }
 
+        function checkLevelUp() {
+            if (score > 0 && score % LEVEL_THRESHOLD === 0) {
+                currentLevel++;
+                currentSpeed = Math.max(50, BASE_SPEED - (currentLevel - 1) * SPEED_INC);
+                
+                // Increase difficulty: add 2 new obstacles
+                for (let i = 0; i < 2; i++) {
+                    spawnExtraObstacle();
+                }
+                
+                // Visual & Audio
+                playSound('levelup');
+                showLevelToast();
+                
+                // Update game loop with new speed
+                clearInterval(gameLoop);
+                gameLoop = setInterval(nextTurn, currentSpeed);
+            }
+        }
+
+        function spawnExtraObstacle() {
+            while (true) {
+                const x = Math.floor(Math.random() * GRID_WIDTH) * SPACE_SIZE;
+                const y = Math.floor(Math.random() * GRID_HEIGHT) * SPACE_SIZE;
+                if (!snake.some(s => s.x === x && s.y === y) && 
+                    !obstacles.some(o => o.x === x && o.y === y) &&
+                    !(food.x === x && food.y === y)) {
+                    obstacles.push({x, y});
+                    break;
+                }
+            }
+        }
+
+        function showLevelToast() {
+            levelToast.style.display = 'block';
+            setTimeout(() => {
+                levelToast.style.display = 'none';
+            }, 1000);
+        }
+
+        function toggleMute() {
+            isMuted = !isMuted;
+            muteToggle.innerText = isMuted ? '🔇' : '🔊';
+            muteToggle.style.opacity = isMuted ? '1' : '0.6';
+        }
+
         function gameOver() {
+            playSound('hit');
             isGameOver = true;
             gameStarted = false; // Cannot pause on game over screen
             clearInterval(gameLoop);
@@ -634,13 +812,15 @@
                 case 'ArrowDown': if (!isPaused && direction !== 'up') nextDirection = 'down'; break;
                 case 'ArrowLeft': if (!isPaused && direction !== 'right') nextDirection = 'left'; break;
                 case 'ArrowRight': if (!isPaused && direction !== 'left') nextDirection = 'right'; break;
-                case ' ': if (!isPaused) fireProjectile(); break;
+                case ' ': if (!isPaused) { initAudio(); fireProjectile(); } break;
                 case 'Enter': 
+                    initAudio();
                     if (isGameOver) resetGame(); 
                     else if (isPaused) togglePause();
                     else if (overlay.style.display !== 'none') startGame(); 
                     break;
                 case 'Escape':
+                    initAudio();
                     if (isGameOver) exitToMenu();
                     else if (gameStarted) togglePause();
                     break;
@@ -652,12 +832,13 @@
         document.getElementById('btn-down').addEventListener('click', () => { if (!isPaused && direction !== 'up') nextDirection = 'down'; });
         document.getElementById('btn-left').addEventListener('click', () => { if (!isPaused && direction !== 'right') nextDirection = 'left'; });
         document.getElementById('btn-right').addEventListener('click', () => { if (!isPaused && direction !== 'left') nextDirection = 'right'; });
-        document.getElementById('btn-fire').addEventListener('click', () => { if (!isPaused) fireProjectile(); });
+        document.getElementById('btn-fire').addEventListener('click', () => { if (!isPaused) { initAudio(); fireProjectile(); } });
         
         document.getElementById('startGameBtn').addEventListener('click', startGame);
         document.getElementById('restartBtn').addEventListener('click', resetGame);
         document.getElementById('resumeBtn').addEventListener('click', togglePause);
         document.getElementById('exitBtn').addEventListener('click', exitToMenu);
+        muteToggle.addEventListener('click', toggleMute);
 
         // Initialize
         init();
