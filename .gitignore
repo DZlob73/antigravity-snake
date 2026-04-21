@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+env/
+venv/
+.venv/
+build/
+dist/
+*.spec
+
+# Game Data
+highscores.json
+
+# OS
+.DS_Store
+Thumbs.db
